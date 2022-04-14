@@ -1,136 +1,94 @@
-from concurrent.futures import thread
-import time
-import threading
-import tkinter as tk
-from tkinter import ttk, PhotoImage
-from tkinter import font
+from tkinter import *
+import math
+
+# ---------------------------- CONSTANTS ------------------------------- #
+PINK = "#e2979c"
+RED = "#e7305b"
+GREEN = "#9bdeac"
+YELLOW = "#f7f5dd"
+FONT_NAME = "Courier"
+WORK_MIN = 25
+SHORT_BREAK_MIN = 5
+LONG_BREAK_MIN = 20
+reps = 0
+timer = None
+
+# ---------------------------- TIMER RESET ------------------------------- # 
+def reset_timer():
+    window.after_cancel(timer)
+    canvas.itemconfig(timer_text, text="00:00")
+    title_label.config(text="Timer")
+    check_marks.config(text="")
+    global reps
+    reps = 0
+
+# ---------------------------- TIMER MECHANISM ------------------------------- # 
+def start_timer():
+    global reps
+    reps += 1
+    work_sec = WORK_MIN * 60
+    short_break_sec = SHORT_BREAK_MIN * 60
+    long_break_sec = LONG_BREAK_MIN * 60
+    # If it's the 1st/3rd/5th/7th rep
+    if reps % 8 == 0:
+        count_down(long_break_sec)
+        title_label.config(text="Break", fg=RED)
+    # If it's the 8th rep
+    elif reps % 2 == 0:
+        count_down(short_break_sec)
+        title_label.config(text="Break", fg=PINK)
+    # If it's the 2nd/4th/6th rep
+    else:
+        count_down(work_sec)
+        title_label.config(text="Work", fg=GREEN)
 
 
-class PomodoroTimer:
-    def __init__(self):
-        self.root = tk.Tk()
-        self.root.geometry("600x300")
-        self.root.title("Pomodoro Timer Luc1f3r11")
-        self.root.tk.call('wm', 'iconphoto', self.root._w, PhotoImage(file="tomato.png"))
+# ---------------------------- COUNTDOWN MECHANISM ------------------------------- # 
+def count_down(count):
+    count_min = math.floor(count / 60)
+    count_sec = count % 60
+    # Dynamic typing allows for changing the data type of a variable
+    # Just by assigning it to a different kind of value
+    if count_sec < 10:
+        count_sec = f"0{count_sec}"
+    canvas.itemconfig(timer_text, text=f"{count_min}:{count_sec}")
+    if count > 0:
+        global timer
+        timer = window.after(1000, count_down, count - 1)
+    else:
+        start_timer()
+        marks = ""
+        work_sessions = math.floor(reps/2)
+        for _ in range(work_sessions):
+            marks += "✓"
+        check_marks.config(text=marks)
 
-        self.s = ttk.Style()
-        self.s.configure("TNotebook.Tab", font=("Ubuntu", 16))
-        self.s.configure("TButton", font=("Ubuntu", 16))
 
-        self.tabs = ttk.Notebook(self.root)
-        self.tabs.pack(fill="both", pady=10, expand=True)
 
-        self.tab1 = ttk.Frame(self.tabs, width=600, height=100)
-        self.tab2 = ttk.Frame(self.tabs, width=600, height=100)
-        self.tab3 = ttk.Frame(self.tabs, width=600, height=100)
+# ---------------------------- UI SETUP ------------------------------- #
+window = Tk()
+window.title("Pomodoro")
+window.config(padx=100, pady=50, bg=YELLOW)
+title_label = Label(text="Timer", fg=GREEN, bg=YELLOW, font=(FONT_NAME, 50))
+title_label.grid(column=1, row=0)
+# Need to check the background colour of the canvas as well
+canvas = Canvas(width=200, height=224, bg=YELLOW, highlightthickness=0)
+# highlightthicknes is used for making the highlight disappear
+tomato_img = PhotoImage(file="tomato.png")
+canvas.create_image(100, 112, image=tomato_img)
+timer_text = canvas.create_text(100, 130, text="00:00", fill="white", font=(FONT_NAME, 35, "bold"))
+canvas.grid(column=1, row=1)
+# count_down(5)
+# x and y values are half of the width and the height
+start_button = Button(text="Start", highlightthickness=0, command=start_timer)
+start_button.grid(column=0, row=2)
+reset_button = Button(text="Reset", highlightthickness=0, command = reset_timer)
+reset_button.grid(column=2, row=2)
 
-        self.pomodoro_timer_label = ttk.Label(self.tab1, text="25:00", font=("Ubuntu", 48))
-        self.pomodoro_timer_label.pack(pady=20)
+check_marks = Label(text="✓", fg=GREEN, bg=YELLOW)
+check_marks.grid(column=1, row=3)
 
-        self.short_break_timer_label = ttk.Label(self.tab2, text="05:00", font=("Ubuntu", 48))
-        self.short_break_timer_label.pack(pady=20)
 
-        self.long_break_timer_label = ttk.Label(self.tab3, text="15:00", font=("Ubuntu", 48))
-        self.long_break_timer_label.pack(pady=20)
+window.mainloop()
 
-        self.tabs.add(self.tab1, text="Pomodoro")
-        self.tabs.add(self.tab2, text="short break")
-        self.tabs.add(self.tab3, text="long break")
 
-        self.grid_layout = ttk.Frame(self.root)
-        self.grid_layout.pack(pady=10)
-
-        self.start_button = ttk.Button(self.grid_layout, text="Start", command=self.start_timer_thread)
-        self.start_button.grid(row=0, column=0)
-
-        self.skip_button = ttk.Button(self.grid_layout, text="Skip", command=self.skip_clock)
-        self.skip_button.grid(row=0, column=1)
-
-        self.reset_button = ttk.Button(self.grid_layout, text="Reset", command=self.reset_clock)
-        self.reset_button.grid(row=0, column=2)
-
-        self.pomodoro_counter_label = ttk.Label(self.grid_layout, text="Pomodoros: 0", font=("Ubuntu", 16))
-        self.pomodoro_counter_label.grid(row=1, column=0, columnspan=3, pady=10)
-
-        self.skipped = False
-        self.stopped = False
-        self.running = False
-
-        self.root.mainloop()
-
-    def start_timer_thread(self):
-        if not self.running:
-            t = threading.Thread(target=self.start_timer)
-            t.start()
-            self.running = True
-
-    def start_timer(self):
-        self.skipped = False
-        self.stopped = False
-        timer_id = self.tabs.index(self.tabs.select()) + 1
-
-        if timer_id == 1:
-            full_seconds = 60 * 25
-            while full_seconds > 0 and not self.stopped:
-                minutes, seconds = divmod(full_seconds, 60)
-                self.pomodoro_timer_label.config(text=f"{minutes:02d}:{seconds:02d}")
-                self.root.update()
-                time.sleep(1)
-                full_seconds -= 1
-            if not self.stopped or self.skipped:
-                self.pomodoros += 1
-                self.pomodoro_counter_label.config(text=f"Pomodoros: {self.pomodoros}")
-                if self.pomodoros % 4 == 0:
-                    self.tabs.select(2)
-                else:
-                    self.tabs.select(1)
-                self.start_timer()
-
-        elif timer_id == 2:
-            full_seconds = 60 * 5
-            while full_seconds > 0 and not self.stopped:
-                minutes, seconds = divmod(full_seconds, 60)
-                self.short_break_timer_label.config(text=f"{minutes:02d}:{seconds:02d}")
-                self.root.update()
-                time.sleep(1)
-                full_seconds -= 1
-            if not self.stopped or self.skipped:
-                self.tabs.select(0)
-                self.start_timer()
-        elif timer_id == 3:
-            full_seconds = 60 * 15
-            while full_seconds > 0 and not self.stopped:
-                minutes, seconds = divmod(full_seconds, 60)
-                self.long_break_timer_label.config(text=f"{minutes:02d}:{seconds:02d}")
-                self.root.update()
-                time.sleep(1)
-                full_seconds -= 1
-            if not self.stopped or self.skipped:
-                self.tabs.select(0)
-                self.start_timer()
-        else:
-            print("Invalid timer id")
-
-    def reset_clock(self):
-        self.skipped = False
-        self.stopped = True
-        self.pomodoros = 0
-        self.pomodoro_timer_label.config(text="25:00")
-        self.short_break_timer_label.config(text="05:00")
-        self.long_break_timer_label.config(text="15:00")
-        self.pomodoro_counter_label.config(text="Pomodoros: 0")
-        self.running = False
-
-    def skip_clock(self):
-        current_tab = self.tabs.index(self.tabs.select())
-        if current_tab == 0:
-            self.pomodoro_timer_label.config(text="25:00")
-        elif current_tab == 1:
-            self.short_break_timer_label.config(text="05:00")
-        elif current_tab == 2:
-            self.long_break_timer_label.config(text="15:00")
-
-        self.skipped = True
-        self.stopped = True
-
-PomodoroTimer()
