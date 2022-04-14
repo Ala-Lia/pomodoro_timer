@@ -1,7 +1,10 @@
+from ast import arguments
 from tkinter import *
 import math
+import tkFont as font 
 
-# ---------------------------- CONSTANTS ------------------------------- #
+
+# -CONSTANTS : defining colours #
 PINK = "#e2979c"
 RED = "#e7305b"
 GREEN = "#9bdeac"
@@ -12,6 +15,7 @@ SHORT_BREAK_MIN = 5
 LONG_BREAK_MIN = 20
 reps = 0
 timer = None
+font = tkFont.Font ()
 
 # ---------------------------- TIMER RESET ------------------------------- # 
 def reset_timer():
@@ -19,6 +23,7 @@ def reset_timer():
     canvas.itemconfig(timer_text, text="00:00")
     title_label.config(text="Timer")
     check_marks.config(text="")
+    font = tkFont.Font ( family="Times New Roman",size=36,weight="bold" )
     global reps
     reps = 0
 
@@ -68,7 +73,7 @@ def count_down(count):
 # ---------------------------- UI SETUP ------------------------------- #
 window = Tk()
 window.title("Pomodoro")
-window.config(padx=100, pady=50, bg=YELLOW)
+window.config(padx=100, pady=50, bg=YELLOW) #Defining padding#
 title_label = Label(text="Timer", fg=GREEN, bg=YELLOW, font=(FONT_NAME, 50))
 title_label.grid(column=1, row=0)
 # Need to check the background colour of the canvas as well
